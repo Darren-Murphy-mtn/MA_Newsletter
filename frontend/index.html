@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M&A Newsletter Signup</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full mx-4">
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">M&A Newsletter</h1>
+                <p class="text-gray-600">Stay informed with the latest Mergers & Acquisitions news</p>
+            </div>
+            
+            <form id="signupForm" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                    <input type="email" id="email" name="email" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Full name</label>
+                    <input type="text" id="name" name="name" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <button type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Subscribe to Newsletter
+                    </button>
+                </div>
+            </form>
+
+            <div id="successMessage" class="hidden mt-4 p-4 bg-green-100 text-green-700 rounded-md">
+                Thank you for subscribing! Please check your email to confirm your subscription.
+            </div>
+
+            <div id="errorMessage" class="hidden mt-4 p-4 bg-red-100 text-red-700 rounded-md">
+                An error occurred. Please try again later.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const name = document.getElementById('name').value;
+            
+            try {
+                const response = await fetch('/api/subscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, name }),
+                });
+                
+                if (response.ok) {
+                    document.getElementById('successMessage').classList.remove('hidden');
+                    document.getElementById('errorMessage').classList.add('hidden');
+                    document.getElementById('signupForm').reset();
+                } else {
+                    throw new Error('Subscription failed');
+                }
+            } catch (error) {
+                document.getElementById('errorMessage').classList.remove('hidden');
+                document.getElementById('successMessage').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html> 

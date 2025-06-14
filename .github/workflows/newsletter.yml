@@ -1,0 +1,23 @@
+name: Send M&A newsletter
+
+on:
+  schedule:
+    - cron:  '0 12 * * *'    # runs 12:00 UTC = 08:00 EDT / 07:00 EST
+  workflow_dispatch:         # manual trigger button
+
+jobs:
+  mailer:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY:   ${{ secrets.OPENAI_API_KEY }}
+      RESEND_API_KEY:   ${{ secrets.RESEND_API_KEY }}
+      EMAIL_SENDER:     ${{ secrets.EMAIL_SENDER }}
+      EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}   # can be blank
+      ADMIN_TOKEN:      ${{ secrets.ADMIN_TOKEN }}        # same string you set on Render
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements.txt
+      - run: python newsletter_automation.py

@@ -1,13 +1,5 @@
-# Python_projects
-#first working on the basics
-# second is data analytics
-
-# third is projects 1
 
 # Automated M&A Newsletter
-
-This project creates an automated newsletter that scrapes M&A headlines from Reuters, ranks them, summarizes them using ChatGPT, and sends them via email using Resend. It also includes a web-based signup form for new subscribers.
-
 ## Features
 
 - Scrapes top 10 M&A headlines from Reuters
@@ -75,7 +67,7 @@ Subscribers are stored in a `subscribers.json` file, which is automatically upda
 
 ## Notes
 
-- The script uses a simple keyword-based ranking system for headlines
+- The script uses a keyword-based ranking system for headlines
 - Email formatting is responsive and mobile-friendly
 - The script includes error handling for API calls and web scraping
 - Subscribers are automatically added to the mailing list

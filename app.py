@@ -59,6 +59,16 @@ def subscribe():
     
     return jsonify({'message': 'Successfully subscribed'}), 200
 
+@app.route('/admin/subscribers', methods=['GET'])
+def list_subscribers():
+    token = request.args.get('token')
+    if token != os.getenv('ADMIN_TOKEN'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    if not os.path.exists(SUBSCRIBERS_FILE):
+        return jsonify([])
+    with open(SUBSCRIBERS_FILE, 'r') as f:
+        return jsonify(json.load(f))
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True) 
 

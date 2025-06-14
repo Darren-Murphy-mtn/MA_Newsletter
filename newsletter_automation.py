@@ -31,6 +31,19 @@ CUTOFF_DT = datetime.utcnow() - timedelta(days=RECENT_DAYS)
 
 SUBSCRIBERS_FILE = 'subscribers.json'
 
+CI = os.getenv("CI") == "true"   # GitHub sets CI=true
+
+def fetch_remote_subscribers():
+    """Only called in CI to grab the live list from Render."""
+    url = f"https://ma-newsletter-deploy.onrender.com/admin/subscribers?token={os.getenv('ADMIN_TOKEN')}"
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        return [item['email'] for item in resp.json()]
+    except Exception as e:
+        print("Could not fetch remote subscribers:", e)
+        return []
+
 def get_recipient_emails():
     emails = []
     if EMAIL_RECIPIENTS:
@@ -50,6 +63,8 @@ def get_recipient_emails():
         if e not in seen:
             unique.append(e)
             seen.add(e)
+    if CI:
+        emails.extend(fetch_remote_subscribers())
     return unique
 
 # --- 1A. Try Reuters RSS with headers ---

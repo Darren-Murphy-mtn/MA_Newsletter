@@ -2,7 +2,7 @@ import os
 import requests
 import feedparser
 import openai
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -27,7 +27,7 @@ openai.api_key = OPENAI_API_KEY
 EXCLUDE_KEYWORDS = ['sports', 'science', 'lifestyle', 'pictures', 'graphics', 'entertainment', 'gaming']
 
 RECENT_DAYS = 2
-CUTOFF_DT = datetime.utcnow() - timedelta(days=RECENT_DAYS)
+CUTOFF_DT = datetime.now(UTC) - timedelta(days=RECENT_DAYS)
 
 SUBSCRIBERS_FILE = 'subscribers.json'
 
@@ -142,7 +142,7 @@ def rank_headlines(headlines):
         score = sum(1 for keyword in m_a_keywords if keyword.lower() in headline['title'].lower())
         ranked_headlines.append((headline, score))
     ranked_headlines.sort(key=lambda x: x[1], reverse=True)
-    return [h[0] for h in ranked_headlines[:5]]  # Top 5
+    return [h[0] for h in ranked_headlines]  # Remove [:5]
 
 # --- 3. Summarize with OpenAI ---
 def summarize_headlines(headlines):

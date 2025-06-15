@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import json
+from urllib.parse import quote
 
 # ── load environment variables ───────────────────────────
 load_dotenv(dotenv_path=Path('.')/'.env')
@@ -142,7 +143,7 @@ def rank_headlines(headlines):
         score = sum(1 for keyword in m_a_keywords if keyword.lower() in headline['title'].lower())
         ranked_headlines.append((headline, score))
     ranked_headlines.sort(key=lambda x: x[1], reverse=True)
-    return [h[0] for h in ranked_headlines]  # Remove [:5]
+    return [h[0] for h in ranked_headlines[:5]] 
 
 # --- 3. Summarize with OpenAI ---
 def summarize_headlines(headlines):
@@ -180,14 +181,28 @@ def create_html_email(summaries):
         <h1>M&A Newsletter</h1>
         <p>Here are today's top M&A headlines and summaries:</p>
     """
+    # Load subscribers to get tokens
+    try:
+        with open('subscribers.json', 'r') as f:
+            subscribers = json.load(f)
+    except Exception:
+        subscribers = []
     for article in summaries:
         html_content += f"""
         <div style='margin-bottom:20px;'>
-            <strong style="color:#000;font-weight:700;">{article['title']}</strong><br>
+            <strong style=\"color:#000;font-weight:700;\">{article['title']}</strong><br>
             <em>{article['summary']}</em><br>
-            <a href="{article['link']}">Read more</a>
+            <a href=\"{article['link']}\">Read more</a>
         </div>
         """
+    # Add unsubscribe links for each recipient
+    html_content += "<hr>"
+    for sub in subscribers:
+        email = sub['email']
+        token = sub.get('token', '')
+        if token:
+            unsub_link = f"https://your-app.onrender.com/unsubscribe?email={quote(email)}&token={quote(token)}"
+            html_content += f'<p style="font-size:small;">To unsubscribe {email}, <a href="{unsub_link}">click here</a>.</p>'
     html_content += "</body></html>"
     return html_content
 

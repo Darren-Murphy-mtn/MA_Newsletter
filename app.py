@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, send_from_directory, Markup
+from flask import Flask, request, jsonify, send_from_directory
+from markupsafe import Markup
 import os
 from dotenv import load_dotenv
 import json

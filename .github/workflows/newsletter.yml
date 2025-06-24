@@ -12,12 +12,13 @@ jobs:
       OPENAI_API_KEY:   ${{ secrets.OPENAI_API_KEY }}
       RESEND_API_KEY:   ${{ secrets.RESEND_API_KEY }}
       EMAIL_SENDER:     ${{ secrets.EMAIL_SENDER }}
-      EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}   # can be blank
-      ADMIN_TOKEN:      ${{ secrets.ADMIN_TOKEN }}        # same string you set on Render
+      EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}   # 
+      ADMIN_TOKEN:      ${{ secrets.ADMIN_TOKEN }}        # same string I set on Render
       CI: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
+      - run: pip uninstall -y openai || true
       - run: pip install -r requirements.txt
       - run: python newsletter_automation.py

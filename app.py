@@ -92,13 +92,24 @@ def subscribe():
         return jsonify({'error': 'This email is already subscribed to the newsletter'}), 400
 
     unsubscribe_token = str(uuid.uuid4())
-    supabase.table("subscribers").insert({
-        "email": email,
-        "name": name,
-        "unsubscribe_token": unsubscribe_token,
-        "unsubscribed": False
-    }).execute()
-    return jsonify({'message': 'Successfully subscribed'}), 200
+    try:
+        result = supabase.table("subscribers").insert({
+            "email": email,
+            "name": name,
+            "unsubscribe_token": unsubscribe_token,
+            "unsubscribed": False
+        }).execute()
+        if result.error:
+            print("Supabase error:", result.error)
+            return jsonify({'error': str(result.error)}), 500
+
+        # Send confirmation email
+        send_test_email(email, unsubscribe_token)
+
+        return jsonify({'message': 'Successfully subscribed'}), 200
+    except Exception as e:
+        print("Exception:", e)
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/subscribers', methods=['GET'])
 def list_subscribers():
@@ -116,31 +127,28 @@ def unsubscribe():
     remove_subscriber(email, token)
     return Markup(f"You have been unsubscribed: {email}")
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True) 
-
-def send_test_email():
-    from datetime import datetime
+def send_test_email(to_email, unsubscribe_token):
     html_content = f"""
     <html>
     <body>
-        <h1>Test M&A Newsletter</h1>
-        <p>This is a test email sent at {datetime.now()}.</p>
-        <a href="https://your-app.onrender.com/unsubscribe?email={article['email']}">Unsubscribe</a>
+        <h1>M&amp;A Newsletter</h1>
+        <p>You've subscribed to the M&amp;A Newsletter.</p>
+        <a href=\"https://manewsletter-production.up.railway.app/unsubscribe?email={to_email}&token={unsubscribe_token}\">Unsubscribe</a>
     </body>
     </html>
     """
     try:
         email_data = {
             "from": os.getenv('FROM_EMAIL'),
-            "to": os.getenv('TO_EMAILS').split(','),
-            "subject": f"Test M&A Newsletter - {datetime.now().strftime('%B %d, %Y')}",
+            "to": [to_email],
+            "subject": "M&A Newsletter Subscription Confirmation",
             "html": html_content
         }
         response = resend.send_email(**email_data)
         print("Resend API response:", response)
     except Exception as e:
-        print(f"Error sending test email: {e}")
+        print(f"Error sending confirmation email: {e}")
 
-if __name__ == "__main__":
-    send_test_email()
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port, debug=True)

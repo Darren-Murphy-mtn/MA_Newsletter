@@ -8,9 +8,16 @@ from datetime import datetime
 import re
 from functools import wraps
 import time
-
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from urllib.parse import urlparse
+from supabase import create_client, Client
+import uuid
 # Load environment variables
 load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = Flask(__name__, static_folder='frontend')
 
@@ -36,15 +43,29 @@ def rate_limited(limit=5, per=60):
         return wrapped
     return decorator
 
-def load_subscribers():
-    if os.path.exists(SUBSCRIBERS_FILE):
-        with open(SUBSCRIBERS_FILE, 'r') as f:
-            return json.load(f)
-    return []
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-def save_subscribers(subscribers):
-    with open(SUBSCRIBERS_FILE, 'w') as f:
-        json.dump(subscribers, f)
+# Helper to get DB connection
+def get_db_conn():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+def load_subscribers():
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute('SELECT email, name, subscribed_at, token FROM subscribers')
+            return cur.fetchall()
+
+def save_subscriber(email, name, token):
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute('INSERT INTO subscribers (email, name, token) VALUES (%s, %s, %s) ON CONFLICT (email) DO NOTHING', (email, name, token))
+            conn.commit()
+
+def remove_subscriber(email, token):
+    with get_db_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM subscribers WHERE email=%s AND token=%s', (email, token))
+            conn.commit()
 
 def is_valid_email(email):
     return re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email)
@@ -57,34 +78,25 @@ def index():
     return send_from_directory('frontend', 'index.html')
 
 @app.route('/api/subscribe', methods=['POST'])
-@rate_limited(limit=5, per=60)
 def subscribe():
     data = request.json
     email = data.get('email')
     name = data.get('name')
     if not email or not name:
         return jsonify({'error': 'Email and name are required'}), 400
-    if not is_valid_email(email):
-        return jsonify({'error': 'Invalid email address'}), 400
-    if not is_valid_name(name):
-        return jsonify({'error': 'Invalid name'}), 400
-    subscribers = load_subscribers()
-    if any(sub['email'] == email for sub in subscribers):
+
+    # Check if already subscribed
+    existing = supabase.table("subscribers").select("email").eq("email", email).execute()
+    if existing.data:
         return jsonify({'error': 'This email is already subscribed to the newsletter'}), 400
-    import secrets
-    token = secrets.token_urlsafe(16)
-    subscribers.append({
-        'email': email,
-        'name': name,
-        'subscribed_at': str(datetime.now()),
-        'token': token
-    })
-    save_subscribers(subscribers)
-    # Update the TO_EMAILS environment variable
-    current_emails = os.getenv('TO_EMAILS', '').split(',')
-    if email not in current_emails:
-        current_emails.append(email)
-        os.environ['TO_EMAILS'] = ','.join(filter(None, current_emails))
+
+    unsubscribe_token = str(uuid.uuid4())
+    supabase.table("subscribers").insert({
+        "email": email,
+        "name": name,
+        "unsubscribe_token": unsubscribe_token,
+        "unsubscribed": False
+    }).execute()
     return jsonify({'message': 'Successfully subscribed'}), 200
 
 @app.route('/admin/subscribers', methods=['GET'])
@@ -92,10 +104,7 @@ def list_subscribers():
     token = request.args.get('token')
     if token != os.getenv('ADMIN_TOKEN'):
         return jsonify({'error': 'Unauthorized'}), 401
-    if not os.path.exists(SUBSCRIBERS_FILE):
-        return jsonify([])
-    with open(SUBSCRIBERS_FILE, 'r') as f:
-        return jsonify(json.load(f))
+    return jsonify(load_subscribers())
 
 @app.route('/unsubscribe', methods=['GET'])
 def unsubscribe():
@@ -103,11 +112,7 @@ def unsubscribe():
     token = request.args.get('token')
     if not email or not token:
         return "Invalid unsubscribe link.", 400
-    subscribers = load_subscribers()
-    new_subs = [s for s in subscribers if not (s['email'] == email and s.get('token') == token)]
-    if len(new_subs) == len(subscribers):
-        return "Invalid or already unsubscribed.", 400
-    save_subscribers(new_subs)
+    remove_subscriber(email, token)
     return Markup(f"You have been unsubscribed: {email}")
 
 if __name__ == '__main__':

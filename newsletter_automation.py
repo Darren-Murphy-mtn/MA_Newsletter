@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import json
 from urllib.parse import quote
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from supabase import create_client, Client
 
 # ── load environment variables ───────────────────────────
 load_dotenv(dotenv_path=Path('.')/'.env')
@@ -16,6 +19,11 @@ EMAIL_SENDER      = os.getenv("EMAIL_SENDER")
 EMAIL_RECIPIENTS  = os.getenv("EMAIL_RECIPIENTS", "")
 RESEND_API_KEY    = os.getenv("RESEND_API_KEY")
 OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY")
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 names = ["EMAIL_SENDER", "RESEND_API_KEY", "OPENAI_API_KEY"]
 missing_names = [names[i] for i, v in enumerate([EMAIL_SENDER, RESEND_API_KEY, OPENAI_API_KEY]) if not v]
@@ -30,43 +38,19 @@ EXCLUDE_KEYWORDS = ['sports', 'science', 'lifestyle', 'pictures', 'graphics', 'e
 RECENT_DAYS = 2
 CUTOFF_DT = datetime.now(UTC) - timedelta(days=RECENT_DAYS)
 
-SUBSCRIBERS_FILE = 'subscribers.json'
-
 CI = os.getenv("CI") == "true"   # GitHub sets CI=true
 
-def fetch_remote_subscribers():
-    """Only called in CI to grab the live list from Render."""
-    url = f"https://ma-newsletter-deploy.onrender.com/admin/subscribers?token={os.getenv('ADMIN_TOKEN')}"
-    try:
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        return [item['email'] for item in resp.json()]
-    except Exception as e:
-        print("Could not fetch remote subscribers:", e)
-        return []
+def get_db_conn():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 def get_recipient_emails():
-    emails = []
+    res = supabase.table("subscribers").select("email").eq("unsubscribed", False).execute()
+    emails = [row["email"] for row in res.data]
+    # Optionally merge with EMAIL_RECIPIENTS from env
     if EMAIL_RECIPIENTS:
-        emails.extend([e.strip() for e in EMAIL_RECIPIENTS.split(',') if e.strip()])
-    # load subscribers file
-    if Path(SUBSCRIBERS_FILE).exists():
-        try:
-            with open(SUBSCRIBERS_FILE, 'r') as f:
-                subs = json.load(f)
-                emails.extend([s['email'] for s in subs if 'email' in s])
-        except Exception:
-            pass
-    # deduplicate while preserving order
-    seen = set()
-    unique = []
-    for e in emails:
-        if e not in seen:
-            unique.append(e)
-            seen.add(e)
-    if CI:
-        emails.extend(fetch_remote_subscribers())
-    return unique
+        emails += [e.strip() for e in EMAIL_RECIPIENTS.split(",") if e.strip()]
+    # Deduplicate
+    return list(dict.fromkeys(emails))
 
 # --- 1A. Try Reuters RSS with headers ---
 def fetch_reuters_rss():

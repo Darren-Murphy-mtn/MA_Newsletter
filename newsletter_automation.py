@@ -44,7 +44,7 @@ def get_db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 def get_recipient_emails():
-    res = supabase.table("subscribers").select("email").eq("unsubscribed", False).execute()
+    res = supabase.table("subscribers").select("email, unsubscribe_token").eq("unsubscribed", False).execute()
     emails = [row["email"] for row in res.data]
     # Optionally merge with EMAIL_RECIPIENTS from env
     if EMAIL_RECIPIENTS:
@@ -185,8 +185,8 @@ def create_html_email(summaries):
         email = sub['email']
         token = sub.get('token', '')
         if token:
-            unsub_link = f"https://your-app.onrender.com/unsubscribe?email={quote(email)}&token={quote(token)}"
-            html_content += f'<p style="font-size:small;">To unsubscribe {email}, <a href="{unsub_link}">click here</a>.</p>'
+            unsubscribe_url = f"https://your-railway-app-url/unsubscribe/{token}"
+            html_content += f'<p style="font-size:small;">To unsubscribe {email}, <a href="{unsubscribe_url}">click here</a>.</p>'
     html_content += "</body></html>"
     return html_content
 
